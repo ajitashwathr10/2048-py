@@ -1,1 +1,1 @@
-# 2048-py
+# 2048 Game Python
