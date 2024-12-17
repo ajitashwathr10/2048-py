@@ -8,10 +8,13 @@ from typing import List, Tuple, Dict
 class Game:
     def __init__(self):
         pygame.init()
-        self.load_config()
-        #self.apply_config_settings()
+        self.config = self.load_config()
+        self.apply_config_settings()
         self.setup_game_environment()
         self.initialize_game_systems()
+
+        self.conn = sqlite3.connect('game_database.db')
+        self.create_database_tables()
     
     def load_config(self):
         default_config = {
@@ -32,7 +35,7 @@ class Game:
             print(f"Error loading configuration: {e}")
             print("Falling back to default configuration")
         return default_config
-    """
+    
     def apply_config_settings(self):
         self.width = self.config.get('screen_width', 800)
         self.height = self.config.get('screen_height', 900)
@@ -43,7 +46,50 @@ class Game:
         
         self.particle_effects = self.config.get('particle_effects', True)
         self.sound_volume = self.config.get('sound_volume', 0.5)
-    """
+
+    def create_database_tables(self):
+        cursor = self.conn.cursor()
+        cursor.execute('''
+                       CREATE TABLE IF NOT EXISTS high_scores (
+                       id INTEGER PRIMARY KEY,
+                       score INTEGER,
+                       difficulty TEXT,
+                       date DATETIME DEFAULT CURRENT_TIMESTAMP
+                       )
+                       ''') 
+        self.conn.commit()
+    
+    def load_fonts(self):
+        return {
+            'small': pygame.font.Font(None, 24),
+            'medium': pygame.font.Font(None, 36),
+            'large': pygame.font.Font(None, 48)
+        }
+    
+    def start_game(self):
+        grid_size = self.difficulty_levels[self.current_difficulty]['grid_size']
+        return [[0] * grid_size for _ in range(grid_size)]
+
+    def add_new_tile(self):
+        grid_size = len(self.mat)
+        empty_cells = [(r, c) for r in range(grid_size) for c in range(grid_size) if self.mat[r][c] == 0]
+        if not empty_cells:
+            return False
+        r, c = random.choice(empty_cells)
+        spawn_prob = self.difficulty_levels[self.current_difficulty]['spawn_probs']
+        self.mat[r][c] = 2 if random.random() < float(spawn_prob['2']) else 4
+        return True
+    
+    def create_particle_effect(self, value, position):
+        if self.particle_effects:
+            self.particles.append({
+                'value': value,
+                'position': position,
+                'lifetime': 30
+            })
+
+    def init_audio(self):
+        pygame.mixer.init()
 
     def get_color_scheme(self):
         """Dynamic color schemes based on theme"""
@@ -173,7 +219,6 @@ class Game:
                 self.notification_queue.append(self.achievements[achievement_key])
 
     def menu_action_start_game(self):
-        """Start game action from main menu"""
         self.game_states['main_menu'] = False
         self.game_states['playing'] = True
         self.mat = self.start_game()
