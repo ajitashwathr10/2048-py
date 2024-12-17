@@ -129,7 +129,6 @@ class Game:
         return color_schemes.get(self.theme, color_schemes['dark'])
 
     def setup_game_environment(self):
-        """Comprehensive game environment setup"""
         pygame.display.set_caption('2048')
         self.clock = pygame.time.Clock()
         self.fonts = self.load_fonts()
@@ -202,7 +201,6 @@ class Game:
             self.check_achievements()
 
     def render_achievement_notification(self):
-        """Display achievement notifications"""
         if self.notification_queue:
             achievement = self.notification_queue.pop(0)
             title = achievement['reward']
