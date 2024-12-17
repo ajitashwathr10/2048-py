@@ -8,11 +8,31 @@ from typing import List, Tuple, Dict
 class Game:
     def __init__(self):
         pygame.init()
-        self.config = self.load_config()
-        self.apply_config_settings()
+        self.load_config()
+        #self.apply_config_settings()
         self.setup_game_environment()
         self.initialize_game_systems()
-
+    
+    def load_config(self):
+        default_config = {
+            'screen_width': 800,
+            'screen_height': 900,
+            'theme': 'dark',
+            'particle_effects': True,
+            'sound_volume': 0.5,
+            'difficulty': 'medium'
+        }
+        config_path = 'game_config.json'
+        try:
+            if os.path.exists(config_path):
+                with open(config_path, 'r') as config_file:
+                    user_config = json.load(config_file)
+                    return {**default_config, **user_config}
+        except (json.JSONDecodeError, IOError) as e:
+            print(f"Error loading configuration: {e}")
+            print("Falling back to default configuration")
+        return default_config
+    """
     def apply_config_settings(self):
         self.width = self.config.get('screen_width', 800)
         self.height = self.config.get('screen_height', 900)
@@ -23,6 +43,7 @@ class Game:
         
         self.particle_effects = self.config.get('particle_effects', True)
         self.sound_volume = self.config.get('sound_volume', 0.5)
+    """
 
     def get_color_scheme(self):
         """Dynamic color schemes based on theme"""
@@ -50,7 +71,7 @@ class Game:
 
     def setup_game_environment(self):
         """Comprehensive game environment setup"""
-        pygame.display.set_caption('Advanced 2048')
+        pygame.display.set_caption('2048')
         self.clock = pygame.time.Clock()
         self.fonts = self.load_fonts()
         
