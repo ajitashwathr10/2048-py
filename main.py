@@ -91,8 +91,21 @@ class Game:
     def init_audio(self):
         pygame.mixer.init()
 
+    def show_notification(self, title, description, reward):
+        print(f"Notification: {title} - {description}")
+
+    def run(self):
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+            pygame.display.flip()
+            self.clock.tick(60)
+        pygame.quit()
+        self.conn.close()
+
     def get_color_scheme(self):
-        """Dynamic color schemes based on theme"""
         color_schemes = {
             'dark': {
                 'background': (50, 50, 50),
