@@ -31,10 +31,9 @@ class Game:
                 with open(config_path, 'r') as config_file:
                     user_config = json.load(config_file)
                     return {**default_config, **user_config}
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Error loading configuration: {e}")
-            print("Falling back to default configuration")
-        return default_config
+            return default_config
+        except json.JSONDecodeError:
+            return default_config
     
     def apply_config_settings(self):
         self.width = self.config.get('screen_width', 800)
