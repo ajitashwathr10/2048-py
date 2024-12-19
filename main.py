@@ -90,7 +90,7 @@ class Game:
     def init_audio(self):
         pygame.mixer.init()
 
-    def show_notification(self, title, description, reward):
+    def show_notification(self, title, description):
         print(f"Notification: {title} - {description}")
 
     def run(self):
@@ -130,6 +130,8 @@ class Game:
     def setup_game_environment(self):
         pygame.display.set_caption('2048')
         self.clock = pygame.time.Clock()
+        self.fps = 60
+        self.running = True
         self.fonts = self.load_fonts()
         
         self.game_states = {
@@ -154,6 +156,26 @@ class Game:
         self.init_audio()
         self.notification_queue = []
 
+    #Changes
+        self.score = 0
+        self.high_score = 0
+        self.board_size = 4
+        self.grid = [[0] * self.board_size for _ in range(self.board_size)]
+        self.game_over = False
+        self.spawn_initial_tiles()
+
+    def spawn_initial_tiles(self):
+        for _ in range(2):
+            self.spawn_new_tile()
+    
+    def spawn_new_tile(self):
+        empty_cells = [(i, j) for i in range(self.board_size)
+                       for j in range(self.board_size) if self.grid[i][j] == 0]
+        if empty_cells:
+            i, j = random.choice(empty_cells)
+            self.grid[i][j] = 2 if random.random() < 0.9 else 4
+    #Changes
+
     def create_achievement_system(self):
         return {
             '2048_reached': {'unlocked': False, 'reward': 'Novice Merger', 'description': 'Reach 2048 tile'},
@@ -171,7 +193,7 @@ class Game:
             'down': lambda r, c: (grid_size - 1 - c, r)
         }
         
-        def process_direction(direction_func):
+        def process_direction(directions):
             nonlocal moved
             new_mat = [[0] * grid_size for _ in range(grid_size)]
             
@@ -242,6 +264,11 @@ class Game:
         cursor = self.conn.cursor()
         cursor.execute('SELECT score, difficulty FROM high_scores ORDER BY score DESC LIMIT 10')
         return cursor.fetchall()
+    
+    #Changes
+    def cleanup(self):
+        self.conn.close()
+        pygame.quit()
 
 def main():
     game = Game()
