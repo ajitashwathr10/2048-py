@@ -16,7 +16,7 @@ class Game:
         self.conn = sqlite3.connect('game_database.db')
         self.create_database_tables()
     
-    def load_config(self):
+    def load_config(self) -> Dict:
         default_config = {
             'screen_width': 800,
             'screen_height': 900,
@@ -36,15 +36,16 @@ class Game:
             return default_config
     
     def apply_config_settings(self):
-        self.width = self.config.get('screen_width', 800)
-        self.height = self.config.get('screen_height', 900)
+        self.width = self.config['screen_width']
+        self.height = self.config['screen_height']
         self.screen = pygame.display.set_mode((self.width, self.height))
         
-        self.theme = self.config.get('theme', 'dark')
+        self.theme = self.config.get('theme')
         self.color_scheme = self.get_color_scheme()
         
-        self.particle_effects = self.config.get('particle_effects', True)
-        self.sound_volume = self.config.get('sound_volume', 0.5)
+        self.particle_effects = self.config['particle_effects']
+        self.sound_volume = self.config['sound_volume']
+        pygame.mixer.music.set_volume(self.sound_volume)
 
     def create_database_tables(self):
         cursor = self.conn.cursor()
@@ -58,16 +59,24 @@ class Game:
                        ''') 
         self.conn.commit()
     
-    def load_fonts(self):
-        return {
-            'small': pygame.font.Font(None, 24),
-            'medium': pygame.font.Font(None, 36),
-            'large': pygame.font.Font(None, 48)
-        }
-    
-    def start_game(self):
+    def load_fonts(self) -> Dict:
+        try:
+            return {
+                'small': pygame.font.Font(None, 24),
+                'medium': pygame.font.Font(None, 36),
+                'large': pygame.font.Font(None, 48)
+            }
+        except pygame.error as e:
+            print(f"Error loading fonts: {e}")
+            return {}
+        
+    def start_game(self) -> List[List[int]]:
+        self.score = 0
+        self.game_over = False
         grid_size = self.difficulty_levels[self.current_difficulty]['grid_size']
-        return [[0] * grid_size for _ in range(grid_size)]
+        self.mat = [[0] * grid_size for _ in range(grid_size)]
+        self.spawn_initial_tiles()
+        return self.mat
 
     def add_new_tile(self):
         grid_size = len(self.mat)
@@ -79,30 +88,65 @@ class Game:
         self.mat[r][c] = 2 if random.random() < float(spawn_prob['2']) else 4
         return True
     
-    def create_particle_effect(self, value, position):
+    def create_particle_effect(self, value: int, position: Tuple[int, int]):
         if self.particle_effects:
             self.particles.append({
                 'value': value,
                 'position': position,
-                'lifetime': 30
+                'lifetime': 30,
+                'color': self.color_scheme['tile_colors'].get(value, (200, 200, 200))
             })
 
-    def init_audio(self):
-        pygame.mixer.init()
+    def update_particles(self):
+        self.particles = [p for p in self.particles if p['lifetime'] > 0]
+        for particle in self.particles:
+            particle['lifetime'] -= 1
+    
+    def render_particles(self):
+        for particle in self.particles:
+            pos = particle['position']
+            alpha = int((particle['lifetime'] / 30) * 255)
+            surface = pygame.Surface((50, 50), pygame.SRCALPHA)
+            pygame.draw.circle(surface, (*particle['color'], alpha), (25, 25), 25)
+            self.screen.blit(surface, (pos[1] * 100 + 25, pos[0] * 100 + 25))
 
-    def show_notification(self, title, description):
-        print(f"Notification: {title} - {description}")
+    def init_audio(self):
+        try:
+            pygame.mixer.init()
+        except pygame.error as e:
+            print(f"Error initializing audio: {e}")
+
+    def show_notification(self, title: str, description: str, duration: int = 3000):
+        self.notification_queue.append({
+            'title': title,
+            'description': description,
+            'start_time': pygame.time.get_ticks(),
+            'duration': duration
+        })
+
+    def update_notifications(self):
+        current_time = pygame.time.get_ticks()
+        self.notification_queue = [n for n in self.notification_queue
+                                if current_time - n['start_time'] < n['duration']]
+    
+    def render_notifications(self):
+        y_offset = 10
+        for notification in self.notification_queue:
+            text = self.fonts['medium'].render(
+                f"{notification['title']}: {notification['description']}",
+                True,
+                (255, 255, 255)
+            )
+            self.screen.blit(text, (10, y_offset))
+            y_offset += 40
 
     def run(self):
-        running = True
-        while running:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    running = False
-            pygame.display.flip()
+        while self.running:
+            self.handle_events()
+            self.update()
+            self.render()
             self.clock.tick(60)
-        pygame.quit()
-        self.conn.close()
+        self.cleanup()
 
     def get_color_scheme(self):
         color_schemes = {
@@ -276,3 +320,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+#def handle_events(self):
