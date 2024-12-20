@@ -186,6 +186,67 @@ class Game:
             'achievements': False
         }
 
+    def handle_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            elif event.type == pygame.KEYDOWN and self.game_states['playing']:
+                self.handle_game_input(event.key)
+    
+    def handle_gane_input(self, key):
+        key_actions = {
+            pygame.K_LEFT: lambda: self.move_tiles('left'),
+            pygame.K_RIGHT: lambda: self.move_tiles('right'),
+            pygame.K_UP: lambda: self.move_tiles('up'),
+            pygame.K_DOWN: lambda: self.move_tiles('down')
+        }
+        if key in key_actions:
+            key_actions[key]()
+
+    def update(self):
+        self.update_particles()
+        self.update_notifications()
+        if self.game_states['playing']:
+            self.check_game_over()
+
+    def render(self):
+        self.screen.fill(self.color_scheme['background'])
+        if self.game_states['playing']:
+            self.render_game()
+        elif self.game_states['main_menu']:
+            self.render_menu()
+        self.render_particles()
+        self.render_notifications()
+        pygame.display.flip()
+    
+    def render_game(self):
+        pass
+
+    def render_menu(self):
+        pass
+    def check_game_over(self):
+        if not any(0 in row for row in self.mat):
+            for i in range(len(self.mat)):
+                for j in range(len(self.mat)):
+                    if(i < len(self.mat) - 1 and self.mat[i][j] == self.mat[i + 1][j]) or (j < len(self.mat) - 1 and self.mat[i][j] == self.mat[i][j + 1])
+                        return False
+            self.game_over = True
+            self.save_score()
+
+    def save_score(self):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            'INSERT INTO high_scores (score, difficulty) VALUES (?, ?)',
+            (self.score, self.current_difficulty)
+        )
+        self.conn.commit()
+    
+    def cleanup(self):
+        if hasattr(self, 'conn'):
+            self.conn.close()
+        pygame.quit()
+
+
     def initialize_game_systems(self):
         self.difficulty_levels = {
             'easy': {'grid_size': 4, 'max_undo': 5, 'spawn_prob': {'2': 0.95, '4': 0.05}},
@@ -316,10 +377,12 @@ class Game:
 
 def main():
     game = Game()
-    game.run()
+    try:
+        game.run()
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        game.cleanup()
 
 if __name__ == '__main__':
     main()
 
-
-#def handle_events(self):
