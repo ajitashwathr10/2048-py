@@ -220,15 +220,21 @@ class Game:
         pygame.display.flip()
     
     def render_game(self):
+        """
+        Renders the game board
+        """
         pass
 
     def render_menu(self):
+        """
+        Renders the main menu
+        """
         pass
     def check_game_over(self):
         if not any(0 in row for row in self.mat):
             for i in range(len(self.mat)):
                 for j in range(len(self.mat)):
-                    if(i < len(self.mat) - 1 and self.mat[i][j] == self.mat[i + 1][j]) or (j < len(self.mat) - 1 and self.mat[i][j] == self.mat[i][j + 1])
+                    if(i < len(self.mat) - 1 and self.mat[i][j] == self.mat[i + 1][j]) or (j < len(self.mat) - 1 and self.mat[i][j] == self.mat[i][j + 1]):
                         return False
             self.game_over = True
             self.save_score()
