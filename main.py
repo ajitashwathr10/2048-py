@@ -3,221 +3,290 @@ import random
 import sqlite3
 import json
 import os
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Optional
+from dataclasses import dataclass
+from enum import Enum
+import time
 
-class Game:
+class GameMode(Enum):
+    CLASSIC = "classic"
+    TIME_ATTACK = "time_attack"
+    ZEN = "zen"
+    CHALLENGE = "challenge"
+
+@dataclass
+class Achievement:
+    id: str
+    name: str
+    description: str
+    condition: str
+    icon: str
+    unlocked: bool = False
+
+class Game():
     def __init__(self):
-        pygame.init()
-        self.load_and_apply_config()
-        self.initialize_game_state()
-        self.setup_database()
+        super().__init__()
+        self.initialize_features()
 
-    def load_and_apply_config(self):
-        default_config = {
-            'screen_width': 800,
-            'screen_height': 900,
-            'theme': 'dark',
-            'particle_effects': True,
-            'sound_volume': 0.5,
-            'difficulty': 'medium'
-        }
+    def initialize_features(self):
+        self.game_mode = GameMode.CLASSIC
+        self.time_attack_duration = 180 
+        self.time_remaining = self.time_attack_duration
+        self.last_time = time.time()
+        self.animations = []
+        self.animation_speed = 0.3
+        #self.load_sound_effects()
+        self.setup_achievements()
+    
+        self.available_power_ups = self.initialize_power_ups()
+        self.active_power_ups = []
         
-        try:
-            with open('game_config.json', 'r') as f:
-                self.config = {**default_config, **json.load(f)}
-        except (FileNotFoundError, json.JSONDecodeError):
-            self.config = default_config
+        self.stats = self.load_statistics()
+        self.move_history = []
+        self.max_undos = 3
+        self.undo_count = 0
 
-        # Apply settings
-        self.screen = pygame.display.set_mode((self.config['screen_width'], self.config['screen_height']))
-        pygame.display.set_caption('2048')
-        pygame.mixer.init()
-        pygame.mixer.music.set_volume(self.config['sound_volume'])
+    #def load_sound_effects(self):
+    #    self.sounds = {
+    #        'merge': pygame.mixer.Sound('assets/merge.wav'),
+    #        'move': pygame.mixer.Sound('assets/move.wav'),
+    #        'game_over': pygame.mixer.Sound('assets/game_over.wav'),
+    #        'achievement': pygame.mixer.Sound('assets/achievement.wav'),
+    #        'power_up': pygame.mixer.Sound('assets/power_up.wav')
+    #    }
         
-        self.color_scheme = {
-            'dark': {
-                'background': (50, 50, 50),
-                'tile_colors': {2: (238, 228, 218), 4: (237, 224, 200), 
-                              8: (242, 177, 121), 16: (245, 149, 99)}
+        # Create assets directory if it doesn't exist
+    #    if not os.path.exists('assets'):
+    #        os.makedirs('assets')
+    #        print("Please add sound files to the assets directory")
+    
+
+    def setup_achievements(self):
+        self.achievements = [
+            Achievement(
+                id = "first_2048",
+                name = "First 2048!",
+                description = "Get your first 2048 tile",
+                condition = "max_tile >= 2048",
+                icon = "🏆"
+            ),
+            Achievement(
+                id = "speed_demon",
+                name = "Speed Demon",
+                description = "Win a game in under 3 minutes",
+                condition = "win_time < 180",
+                icon = "⚡"
+            ),
+            Achievement(
+                id = "perfect_game",
+                name = "Perfect Game",
+                description = "Win without using undo",
+                condition = "undo_count == 0",
+                icon = "✨"
+            )
+        ]
+        
+        self.load_achievements()
+
+    def initialize_power_ups(self) -> Dict:
+        return {
+            'undo': {
+                'name': 'Undo',
+                'description': 'Reverse your last move',
+                'count': self.max_undos,
+                'key': 'u'
             },
-            'light': {
-                'background': (250, 248, 239),
-                'tile_colors': {2: (205, 193, 180), 4: (232, 217, 196),
-                              8: (237, 177, 121), 16: (245, 149, 99)}
+            'clear_tile': {
+                'name': 'Clear Tile',
+                'description': 'Remove any tile from the board',
+                'count': 1,
+                'key': 'c'
+            },
+            'double_points': {
+                'name': 'Double Points',
+                'description': 'Double points for 5 moves',
+                'count': 1,
+                'key': 'd',
+                'duration': 5
             }
-        }[self.config['theme']]
-
-    def initialize_game_state(self):
-        self.difficulty_settings = {
-            'easy': {'size': 4, 'spawn_rates': (0.95, 0.05)},
-            'medium': {'size': 4, 'spawn_rates': (0.90, 0.10)},
-            'hard': {'size': 5, 'spawn_rates': (0.85, 0.15)}
         }
-        
-        self.current_difficulty = self.config['difficulty']
-        self.board_size = self.difficulty_settings[self.current_difficulty]['size']
-        
-        # Game state
-        self.score = 0
-        self.game_over = False
-        self.running = True
-        self.state = 'main_menu'  # main_menu, playing, settings
-        
-        # Initialize grid
-        self.grid = [[0] * self.board_size for _ in range(self.board_size)]
-        self.spawn_initial_tiles()
-        
-        # Visual elements
-        self.particles = []
-        self.notifications = []
-        self.fonts = {size: pygame.font.Font(None, size) 
-                     for size in [24, 36, 48]}
-        self.clock = pygame.time.Clock()
 
-    def setup_database(self):
-        self.conn = sqlite3.connect('game_database.db')
-        self.conn.execute('''CREATE TABLE IF NOT EXISTS high_scores
-                           (id INTEGER PRIMARY KEY,
-                            score INTEGER,
-                            difficulty TEXT,
-                            date DATETIME DEFAULT CURRENT_TIMESTAMP)''')
-        self.conn.commit()
+    def load_statistics(self) -> Dict:
+        try:
+            with open('game_stats.json', 'r') as f:
+                return json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return {
+                'games_played': 0,
+                'total_score': 0,
+                'highest_tile': 0,
+                'time_played': 0,
+                'moves_made': 0
+            }
 
-    def spawn_initial_tiles(self):
-        for _ in range(2):
-            self.spawn_new_tile()
-
-    def spawn_new_tile(self) -> bool:
-        empty_cells = [(r, c) for r in range(self.board_size) 
-                      for c in range(self.board_size) if self.grid[r][c] == 0]
-        if not empty_cells:
-            return False
-            
-        r, c = random.choice(empty_cells)
-        rates = self.difficulty_settings[self.current_difficulty]['spawn_rates']
-        self.grid[r][c] = 2 if random.random() < rates[0] else 4
-        return True
+    def save_statistics(self):
+        with open('game_stats.json', 'w') as f:
+            json.dump(self.stats, f)
 
     def move_tiles(self, direction: str) -> bool:
-        original_grid = [row[:] for row in self.grid]
-        merged = False
+        self.move_history.append([row[:] for row in self.grid])
+        if len(self.move_history) > self.max_undos + 1:
+            self.move_history.pop(0)
+        moved = super().move_tiles(direction)
+        if moved:
+            self.stats['moves_made'] += 1
+            self.play_sound('move')
+            self.check_achievements()
+            self.update_power_ups()
         
-        def process_line(line: List[int]) -> List[int]:
-            nonzero = [x for x in line if x != 0]
-            merged_line = []
-            i = 0
-            while i < len(nonzero):
-                if i + 1 < len(nonzero) and nonzero[i] == nonzero[i + 1]:
-                    merged_line.append(nonzero[i] * 2)
-                    self.score += nonzero[i] * 2
-                    i += 2
-                else:
-                    merged_line.append(nonzero[i])
-                    i += 1
-            return merged_line + [0] * (len(line) - len(merged_line))
+        return moved
 
-        if direction in ['left', 'right']:
-            for i in range(self.board_size):
-                row = self.grid[i]
-                if direction == 'right':
-                    row = row[::-1]
-                self.grid[i] = process_line(row)
-                if direction == 'right':
-                    self.grid[i] = self.grid[i][::-1]
-                    
-        elif direction in ['up', 'down']:
-            for j in range(self.board_size):
-                col = [self.grid[i][j] for i in range(self.board_size)]
-                if direction == 'down':
-                    col = col[::-1]
-                processed = process_line(col)
-                if direction == 'down':
-                    processed = processed[::-1]
-                for i in range(self.board_size):
-                    self.grid[i][j] = processed[i]
+    def undo_move(self) -> bool:
+        if (len(self.move_history) > 1 and 
+            self.undo_count < self.max_undos and 
+            not self.game_over):
+            self.move_history.pop()  
+            self.grid = [row[:] for row in self.move_history[-1]]
+            self.undo_count += 1
+            return True
+        return False
 
-        merged = any(original_grid[i][j] != self.grid[i][j]
-                    for i in range(self.board_size)
-                    for j in range(self.board_size))
-                    
-        if merged:
-            self.spawn_new_tile()
-            self.check_game_over()
-        
-        return merged
+    def update_power_ups(self):
+        for power_up in self.active_power_ups[:]:
+            if 'duration' in power_up:
+                power_up['duration'] -= 1
+                if power_up['duration'] <= 0:
+                    self.active_power_ups.remove(power_up)
 
-    def check_game_over(self) -> bool:
-        if any(0 in row for row in self.grid):
-            return False
+    def use_power_up(self, power_up_id: str, *args) -> bool:
+        if (power_up_id in self.available_power_ups and 
+            self.available_power_ups[power_up_id]['count'] > 0):
             
-        for i in range(self.board_size):
-            for j in range(self.board_size):
-                if (i < self.board_size - 1 and self.grid[i][j] == self.grid[i + 1][j]) or \
-                   (j < self.board_size - 1 and self.grid[i][j] == self.grid[i][j + 1]):
-                    return False
-                    
-        self.game_over = True
-        self.save_score()
+            if power_up_id == 'undo':
+                success = self.undo_move()
+            elif power_up_id == 'clear_tile':
+                success = self.clear_tile(*args)
+            elif power_up_id == 'double_points':
+                success = self.activate_double_points()
+            
+            if success:
+                self.available_power_ups[power_up_id]['count'] -= 1
+                self.play_sound('power_up')
+                return True
+        return False
+
+    def clear_tile(self, row: int, col: int) -> bool:
+        if 0 <= row < self.board_size and 0 <= col < self.board_size:
+            if self.grid[row][col] != 0:
+                self.grid[row][col] = 0
+                return True
+        return False
+
+    def activate_double_points(self) -> bool:
+        self.active_power_ups.append({
+            'type': 'double_points',
+            'duration': self.available_power_ups['double_points']['duration']
+        })
         return True
 
-    def save_score(self):
-        self.conn.execute('INSERT INTO high_scores (score, difficulty) VALUES (?, ?)',
-                         (self.score, self.current_difficulty))
-        self.conn.commit()
-
-    def run(self):
-        while self.running:
-            self.handle_events()
-            self.update()
-            self.render()
-            self.clock.tick(60)
-        self.cleanup()
-
-    def handle_events(self):
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                self.running = False
-            elif event.type == pygame.KEYDOWN and self.state == 'playing':
-                key_actions = {
-                    pygame.K_LEFT: 'left',
-                    pygame.K_RIGHT: 'right',
-                    pygame.K_UP: 'up',
-                    pygame.K_DOWN: 'down'
-                }
-                if event.key in key_actions:
-                    self.move_tiles(key_actions[event.key])
+    def get_score_multiplier(self) -> float:
+        multiplier = 1.0
+        for power_up in self.active_power_ups:
+            if power_up['type'] == 'double_points':
+                multiplier *= 2.0
+        return multiplier
 
     def update(self):
-        # Update particles
-        self.particles = [p for p in self.particles if p['lifetime'] > 0]
-        for p in self.particles:
-            p['lifetime'] -= 1
+        super().update()
+        
+        if self.game_mode == GameMode.TIME_ATTACK and not self.game_over:
+            current_time = time.time()
+            self.time_remaining -= current_time - self.last_time
+            self.last_time = current_time
             
-        # Update notifications
-        current_time = pygame.time.get_ticks()
-        self.notifications = [n for n in self.notifications 
-                            if current_time - n['start_time'] < n['duration']]
+            if self.time_remaining <= 0:
+                self.game_over = True
+                self.save_score()
+
+    #def play_sound(self, sound_id: str):
+    #    if sound_id in self.sounds and self.config['sound_volume'] > 0:
+    #        self.sounds[sound_id].play()
+
+    def check_achievements(self):
+        for achievement in self.achievements:
+            if not achievement.unlocked:
+                condition_met = eval(achievement.condition)
+                if condition_met:
+                    self.unlock_achievement(achievement)
+
+    def unlock_achievement(self, achievement: Achievement):
+        achievement.unlocked = True
+        self.play_sound('achievement')
+        self.notifications.append({
+            'text': f'Achievement Unlocked: {achievement.name}',
+            'start_time': pygame.time.get_ticks(),
+            'duration': 3000
+        })
+        self.conn.execute('''INSERT INTO achievements (id, unlock_date)
+                           VALUES (?, CURRENT_TIMESTAMP)''',
+                        (achievement.id,))
+        self.conn.commit()
+
+    def load_achievements(self):
+        self.conn.execute('''CREATE TABLE IF NOT EXISTS achievements
+                           (id TEXT PRIMARY KEY,
+                            unlock_date DATETIME)''')
+        
+        unlocked = {row[0] for row in 
+                   self.conn.execute('SELECT id FROM achievements')}
+        
+        for achievement in self.achievements:
+            achievement.unlocked = achievement.id in unlocked
 
     def render(self):
-        self.screen.fill(self.color_scheme['background'])
+        super().render()
         
-        if self.state == 'playing':
-            self.render_grid()
-        elif self.state == 'main_menu':
-            self.render_menu()
-            
-        self.render_particles()
-        self.render_notifications()
-        pygame.display.flip()
+        if self.game_mode == GameMode.TIME_ATTACK:
+            self.render_timer()
+        
+        self.render_power_ups()
+        self.render_achievements()
+
+    def render_timer(self):
+        minutes = int(self.time_remaining // 60)
+        seconds = int(self.time_remaining % 60)
+        timer_text = self.fonts['medium'].render(
+            f'Time: {minutes:02d}:{seconds:02d}',
+            True, self.color_scheme['text']
+        )
+        self.screen.blit(timer_text, (10, 10))
+
+    def render_power_ups(self):
+        x = 10
+        y = self.config['screen_height'] - 60
+        
+        for power_up_id, power_up in self.available_power_ups.items():
+            if power_up['count'] > 0:
+                text = self.fonts['small'].render(
+                    f"{power_up['name']} ({power_up['key']}): {power_up['count']}",
+                    True, self.color_scheme['text']
+                )
+                self.screen.blit(text, (x, y))
+                y += 25
+
+    def render_achievements(self):
+        current_time = pygame.time.get_ticks()
+        for achievement in self.achievements:
+            if (achievement.unlocked and 
+                current_time - achievement.unlock_time < 3000):
+                self.render_achievement_notification(achievement)
 
     def cleanup(self):
-        self.conn.close()
-        pygame.quit()
+        self.save_statistics()
+        super().cleanup()
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     game = Game()
-    try:
-        game.run()
-    except Exception as e:
-        print(f"Error occurred: {e}")
-        game.cleanup()
+    game.run()
+
+    
