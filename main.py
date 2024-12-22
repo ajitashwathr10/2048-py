@@ -29,13 +29,14 @@ class Game():
         self.config = {
             'screen_width': 800,
             'screen_height': 600,
-            'board_size': 4
+            'board_size': 4,
+            'max_undos': 3
         }
         self.screen = pygame.display.set_mode(
             (self.config['screen_width'], self.config['screen_height'])
         )
         pygame.display.set_caption('2048')
-    
+        
         self.fonts = {
             'small': pygame.font.Font(None, 24),
             'medium': pygame.font.Font(None, 36),
@@ -50,16 +51,16 @@ class Game():
         }
         
         self.board_size = self.config['board_size']
+        self.max_undos = self.config['max_undos'] 
         self.grid = [[0] * self.board_size for _ in range(self.board_size)]
         self.score = 0
         self.game_over = False
         
         self.notifications = []
         self.conn = sqlite3.connect('game.db')
-        
         self.initialize_features()
         self.add_new_tile()
-        self.add_new_tile()
+        self.add_new_tile()   
 
     def initialize_features(self):
         self.game_mode = GameMode.CLASSIC
