@@ -398,7 +398,7 @@ class Game():
 
     def render_power_ups(self):
         power_up_y = 120
-        for power_up_id, power_up in self.available_power_ups.items():
+        for power_up in self.active_power_ups.values():
             if power_up['count'] > 0:
                 text = self.fonts['small'].render(
                     f"{power_up['name']} ({power_up['key']}): {power_up['count']}",
@@ -460,10 +460,7 @@ class Game():
         self.notifications.clear()
         self.active_power_ups.clear()
         
-        for power_up in self.available_power_ups.values():
-            if 'count' in power_up:
-                power_up['count'] = power_up.get('initial_count', 1)
-        
+        self.available_power_ups = self.initialize_power_ups()
         self.add_new_tile()
         self.add_new_tile()
         
