@@ -137,5 +137,40 @@ class Game:
                     self.screen.blit(text, text_rect)
         pygame.display.flip()
 
+    def move(self, direction):
+        moved = False
+        if direction in ['UP', 'DOWN']:
+            for j in range(GRID_SIZE):
+                column = [self.grid[i][j] for i in range(GRID_SIZE)]
+                if direction == 'UP':
+                    new_column = self.merge(column)
+                else:
+                    new_column = self.merge(column[::-1])[::-1]
+        else:
+            for i in range(GRID_SIZE):
+                row = self.grid[i][:]
+                if direction == 'LEFT':
+                    new_row = self.merge(row)
+                else:
+                    new_row = self.merge(row[::-1])[::-1]
+                if self.grid[i] != new_row:
+                    moved = True
+                self.grid[i] = new_row
+        if moved:
+            self.moves += 1
+            self.add_new_tile()
+        return moved
+    
+    def merge(self, line):
+        new_line = [x for x in line if x != 0]
+        for i in range(len(new_line) - 1):
+            if new_line[i] == new_line[i + 1]:
+                new_line[i] *= 2
+                self.score += new_line[i]
+                new_line[i + 1] = 0
+        
+        new_line = 
+
+
             
 
