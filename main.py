@@ -39,7 +39,7 @@ class Database:
     def setup_database(self):
         self.cursor.execute('''
             CREATE TABLE IF NOT EXISTS games
-            if INTEGER PRIMARY KEY AUTOINCREMENT,
+            (id INTEGER PRIMARY KEY AUTOINCREMENT,
             score INTEGER,
             max_tile INTEGER,
             duration INTEGER,
@@ -51,7 +51,7 @@ class Database:
             CREATE TABLE IF NOT EXISTS high_scores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             score INTEGER,
-            timestamp DATETIME)
+            timestamp DATETIME
             )
         ''')
         self.conn.commit()
@@ -169,7 +169,7 @@ class Game:
                 self.score += new_line[i]
                 new_line[i + 1] = 0
         
-        new_line = [x for x in new_tile if x != 0]
+        new_line = [x for x in new_line if x != 0]
         new_line.extend([0] * (GRID_SIZE - len(new_line)))
         return new_line
     
