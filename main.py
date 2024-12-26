@@ -169,7 +169,94 @@ class Game:
                 self.score += new_line[i]
                 new_line[i + 1] = 0
         
-        new_line = 
+        new_line = [x for x in new_tile if x != 0]
+        new_line.extend([0] * (GRID_SIZE - len(new_line)))
+        return new_line
+    
+    def get_max_tile(self):
+        return max(max(row) for row in self.grid)
+
+    def game_over(self):
+        for i in range(GRID_SIZE):
+            for j in range(GRID_SIZE):
+                if self.grid[i][j] == 0:
+                    return False
+                if i < GRID_SIZE - 1 and self.grid[i][j] == self.grid[i + 1][j]:
+                    return False
+                if j < GRID_SIZE - 1 and self.grid[i][j] == self.grid[i][j + 1]:
+                    return False
+        return True
+    
+    def display_game_over(self):
+        duration = int((datetime.now() - self.start_time).total_seconds())
+        max_tile = self.get_max_tile()
+
+        self.db.save_game(self.score, max_tile, duration, self.moves)
+        self.screen.fill(BACKGROUND_COLOR)
+        game_over_text = self.font.render('Game Over', True, LIGHT_TEXT)
+        score_text = self.font.render(f'Final Score: {self.score}', True, LIGHT_TEXT)
+        max_tile_text = self.font.render(f'Max Tile: {max_tile}', True, LIGHT_TEXT)
+        moves_text = self.font.render(f'Moves: {self.moves}', True, LIGHT_TEXT)
+        time_text = self.font.render(f'Duration: {duration} seconds', True, LIGHT_TEXT)
+
+        texts = [game_over_text, score_text, max_tile_text, moves_text, time_text]
+        spacing = 50
+
+        for i, text in enumerate(texts):
+            text_rect = text.get_rect(center = (WINDOW_SIZE // 2, WINDOW_SIZE // 2 - 100 + i * spacing))
+            self.screen.blit(text, text_rect)
+        pygame.display.flip()
+        pygame.time.wait(3000)
+
+    def display_high_scores(self):
+        self.screen.fill(BACKGROUND_COLOR)
+        high_scores = self.db.get_high_scores()
+        title_text = self.font.render('High Scores', True, LIGHT_TEXT)
+        title_rect = title_text.get_rect(center = (WINDOW_SIZE // 2, 50))
+        self.screen.blit(title_text, title_rect)
+
+        for i, (score, timestamp) in enumerate(high_scores):
+            score_text = self.small_font.render(
+                f'{i + 1}. {score} ({timestamp.split(".")[0]})',
+                True,
+                LIGHT_TEXT
+            )
+            text_rect = score_text.get_rect(center = (WINDOW_SIZE // 2, 120 + i * 40))
+            self.screen.blit(score_text, text_rect)
+
+        pygame.display.flip()
+        pygame.time.wait(3000)
+
+    def run(self):
+        running = True
+        while running:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                if event.type == pygame.KEYDOWN:
+                    moved = False
+                    if event.key == pygame.K_UP:
+                        moved = self.move('UP')
+                    elif event.key == pygame.K_DOWN:
+                        moved = self.move('DOWN')
+                    elif event.key == pygame.K_LEFT:
+                        moved = self.move('LEFT')
+                    elif event.key == pygame.K_RIGHT:
+                        moved = self.move('RIGHT')
+                    
+                    if self.game_over():
+                        self.display_game_over()
+                        self.display_high_scores()
+                        running = False
+            self.draw()
+        self.db.close()
+        pygame.quit()
+        sys.exit()
+
+if __name__ == "__main__":
+    game = Game()
+    game.run()
+
 
 
             
