@@ -107,7 +107,35 @@ class Game:
         self.add_new_tile()
         self.add_new_tile()
 
-        
+    def add_new_tile(self):
+        empty_cells = [(i, j) for i in range(GRID_SIZE)
+                    for j in range(GRID_SIZE) if self.grid[i][j] == 0]
+        if empty_cells:
+            i, j = random.choice(empty_cells)
+            self.grid[i][j] = 2 if random.random() < 0.9 else 4
+
+    def draw(self):
+        self.screen.fill(BACKGROUND_COLOR)
+        score_text = self.small_font.render(f'Score: {self.score}', True, LIGHT_TEXT)
+        self.screen.blit(score_text, (10, 10))
+
+        moves_text = self.small_font.render(f'Moves: {self.moves}', True, LIGHT_TEXT)
+        self.screen.blit(moves_text, (WINDOW_SIZE - 120, 10))
+
+        for i in range(GRID_SIZE):
+            for j in range(GRID_SIZE):
+                value = self.grid[i][j]
+                rect = pygame.Rect(j * CELL_SIZE + PADDING,
+                                i * CELL_SIZE + PADDING + 40,
+                                CELL_SIZE - 2 * PADDING,
+                                CELL_SIZE - 2 * PADDING)
+                pygame.draw.rect(self.screen, COLORS.get(value, COLORS[0]), rect, border_radius = 8)
+                if value != 0:
+                    text_color = TEXT_COLOR if value <= 4 else LIGHT_TEXT
+                    text = self.font.render(str(value), True, text_color)
+                    text_rect = text.get_rect(center = rect.center)
+                    self.screen.blit(text, text_rect)
+        pygame.display.flip()
 
             
 
