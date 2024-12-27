@@ -3,7 +3,7 @@
 A modern implementation of the classic 2048 puzzle game built with Pygame. Challenge yourself to create the 2048 tile while enjoying features like score tracking, game statistics, and local high scores!
 
 <div align = "center">
-  ![2048 Game](pics/game-1.png)
+  <img src = "game-1.png">
 </div>
 
 ## Features
@@ -54,8 +54,9 @@ The game uses SQLite to store two types of records:
 ### Games Table
 - Complete game sessions
 - Includes score, max tile, duration, and moves
+  
 <div align = "center">
-  ![2048 Game](https://github.com/ajitashwathr10/2048-py/blob/main/pics/game-2.png)
+  <img src = "game-2.png">
 </div>
 
 ## Contributing
