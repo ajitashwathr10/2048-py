@@ -94,7 +94,7 @@ class Database:
 
 class Game:
     def __init__(self):
-        self.screen = pygame.display.set_mode((WINDOW_SIZE, WINDOW_SIZE))
+        self.screen = pygame.display.set_mode((WINDOW_SIZE + 2.5, WINDOW_SIZE + 48))
         pygame.display.set_caption('2048')
         self.grid = [[0] * GRID_SIZE for _ in range(GRID_SIZE)]
         self.font = pygame.font.SysFont('Poppins', 36, bold = True)
@@ -146,6 +146,10 @@ class Game:
                     new_column = self.merge(column)
                 else:
                     new_column = self.merge(column[::-1])[::-1]
+                if column != new_column:
+                    moved = True
+                for i in range(GRID_SIZE):
+                    self.grid[i][j] = new_column[i]
         else:
             for i in range(GRID_SIZE):
                 row = self.grid[i][:]
@@ -153,7 +157,7 @@ class Game:
                     new_row = self.merge(row)
                 else:
                     new_row = self.merge(row[::-1])[::-1]
-                if self.grid[i] != new_row:
+                if row != new_row:
                     moved = True
                 self.grid[i] = new_row
         if moved:
